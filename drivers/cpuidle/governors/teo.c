@@ -353,9 +353,11 @@ static int teo_select(struct cpuidle_driver *drv, struct cpuidle_device *dev,
 	 * all of the deeper states, the CPU is likely to wake up early, so find
 	 * an alternative idle state to select.
 	 */
-	if (2 * idx_intercept_sum > cpu_data->total - idx_hit_sum) {
-		s64 last_enabled_span_ns = duration_ns;
-		int last_enabled_idx = idx;
+	alt_intercepts = 2 * idx_intercept_sum > cpu_data->total - idx_hit_sum;
+	alt_recent = idx_recent_sum > NR_RECENT / 2;
+	if (alt_recent || alt_intercepts) {
+		s64 first_suitable_span_ns = duration_ns;
+		int first_suitable_idx = idx;
 
 		/*
 		 * Look for the deepest idle state whose target residency had
@@ -388,8 +390,8 @@ static int teo_select(struct cpuidle_driver *drv, struct cpuidle_device *dev,
 					 * disabled, so take the first enabled
 					 * deeper state with suitable time span.
 					 */
-					idx = last_enabled_idx;
-					duration_ns = last_enabled_span_ns;
+					idx = first_suitable_idx;
+					duration_ns = first_suitable_span_ns;
 				}
 				break;
 			}
@@ -403,14 +405,14 @@ static int teo_select(struct cpuidle_driver *drv, struct cpuidle_device *dev,
 				 * alternative candidate state has been found,
 				 * it may still turn out to be a better choice.
 				 */
-				if (last_enabled_idx != idx)
+				if (first_suitable_idx != idx)
 					continue;
 
 				break;
 			}
 
-			last_enabled_span_ns = span_ns;
-			last_enabled_idx = i;
+			first_suitable_span_ns = span_ns;
+			first_suitable_idx = i;
 		}
 	}
 
