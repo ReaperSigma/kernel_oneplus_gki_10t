@@ -2338,12 +2338,12 @@ EXPORT_SYMBOL_GPL(task_cgroup_path);
  * Unfortunately, letting ->attach() operations acquire cpus_read_lock() can
  * lead to deadlocks.
  *
- * Bringing up a CPU may involve creating new tasks which requires read-locking
- * threadgroup_rwsem, so threadgroup_rwsem nests inside cpus_read_lock(). If we
- * call an ->attach() which acquires the cpus lock while write-locking
- * threadgroup_rwsem, the locking order is reversed and we end up waiting for an
- * on-going CPU hotplug operation which in turn is waiting for the
- * threadgroup_rwsem to be released to create new tasks. For more details:
+ * Bringing up a CPU may involve creating and destroying tasks which requires
+ * read-locking threadgroup_rwsem, so threadgroup_rwsem nests inside
+ * cpus_read_lock(). If we call an ->attach() which acquires the cpus lock while
+ * write-locking threadgroup_rwsem, the locking order is reversed and we end up
+ * waiting for an on-going CPU hotplug operation which in turn is waiting for
+ * the threadgroup_rwsem to be released to create new tasks. For more details:
  *
  *   http://lkml.kernel.org/r/20220711174629.uehfmqegcwn2lqzu@wubuntu
  *
@@ -4219,6 +4219,7 @@ int cgroup_add_dfl_cftypes(struct cgroup_subsys *ss, struct cftype *cfts)
 		cft->flags |= __CFTYPE_ONLY_ON_DFL;
 	return cgroup_add_cftypes(ss, cfts);
 }
+EXPORT_SYMBOL_GPL(cgroup_add_dfl_cftypes);
 
 /**
  * cgroup_add_legacy_cftypes - add an array of cftypes for legacy hierarchies
@@ -6197,19 +6198,18 @@ err:
 static void cgroup_css_set_put_fork(struct kernel_clone_args *kargs)
 	__releases(&cgroup_threadgroup_rwsem) __releases(&cgroup_mutex)
 {
+	struct cgroup *cgrp = kargs->cgrp;
+	struct css_set *cset = kargs->cset;
+
 	cgroup_threadgroup_change_end(current);
 
+	if (cset) {
+		put_css_set(cset);
+		kargs->cset = NULL;
+	}
+
 	if (kargs->flags & CLONE_INTO_CGROUP) {
-		struct cgroup *cgrp = kargs->cgrp;
-		struct css_set *cset = kargs->cset;
-
 		mutex_unlock(&cgroup_mutex);
-
-		if (cset) {
-			put_css_set(cset);
-			kargs->cset = NULL;
-		}
-
 		if (cgrp) {
 			cgroup_put(cgrp);
 			kargs->cgrp = NULL;
