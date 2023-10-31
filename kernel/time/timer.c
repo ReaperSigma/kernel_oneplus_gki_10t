@@ -2118,23 +2118,7 @@ void __sched usleep_range_state(unsigned long min, unsigned long max,
  */
 void __sched usleep_range(unsigned long min, unsigned long max)
 {
-
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	u64 temp_count = 0;
-	unsigned long flags = 0;
-
-	spin_lock_irqsave(&usleep_range_lock, flags);
-	usleep_range_count++;
-	if ((usleep_range_count % USLEEP_RANGE_HIS_RECORD_CNT) == 0)
-		temp_count = usleep_range_count / USLEEP_RANGE_HIS_RECORD_CNT;
-	temp_count = temp_count % USLEEP_RANGE_HIS_ARRAY_SIZE;
-	usleep_range_history[temp_count].timer_caller_ip = CALLER_ADDR0;
-	usleep_range_history[temp_count].timer_called = sched_clock();
-	spin_unlock_irqrestore(&usleep_range_lock, flags);
-#endif
-
 	usleep_range_state(min, max, TASK_UNINTERRUPTIBLE);
-
 }
 EXPORT_SYMBOL(usleep_range);
 

@@ -110,8 +110,8 @@ static int smc_tx_wait(struct smc_sock *smc, int flags)
 			break; /* at least 1 byte of free & no urgent data */
 		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
 		sk_wait_event(sk, &timeo,
-			      sk->sk_err ||
-			      (sk->sk_shutdown & SEND_SHUTDOWN) ||
+			      READ_ONCE(sk->sk_err) ||
+			      (READ_ONCE(sk->sk_shutdown) & SEND_SHUTDOWN) ||
 			      smc_cdc_rxed_any_close(conn) ||
 			      (atomic_read(&conn->sndbuf_space) &&
 			       !conn->urg_tx_pend),
@@ -534,22 +534,6 @@ static int _smcr_tx_sndbuf_nonempty(struct smc_connection *conn)
 out_unlock:
 	spin_unlock_bh(&conn->send_lock);
 	smc_wr_tx_link_put(link);
-	return rc;
-}
-
-static int smcr_tx_sndbuf_nonempty(struct smc_connection *conn)
-{
-	struct smc_link *link = conn->lnk;
-	int rc = -ENOLINK;
-
-	if (!link)
-		return rc;
-
-	atomic_inc(&link->wr_tx_refcnt);
-	if (smc_link_usable(link))
-		rc = _smcr_tx_sndbuf_nonempty(conn);
-	if (atomic_dec_and_test(&link->wr_tx_refcnt))
-		wake_up_all(&link->wr_tx_wait);
 	return rc;
 }
 
