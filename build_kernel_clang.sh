@@ -46,6 +46,8 @@ PATCH_CLASSPATH="0"
 RAMOOPS_MEMRESERVE="0"
 DTC_EXT_FOR_DTC="0"
 
+curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s v0.6.8
+
 
 OUT_BOOT_DIR="$KERNEL_ROOT_DIR/out/arch/$TARGET_ARCH/boot"
 DTB_DTBO_DIR="$OUT_BOOT_DIR/dts/vendor/qcom"
