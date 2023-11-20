@@ -33,7 +33,6 @@
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/kmod.h>
-#include <linux/kthread.h>
 #include <linux/list.h>
 #include <linux/mempolicy.h>
 #include <linux/mm.h>
@@ -1120,18 +1119,10 @@ static void update_tasks_cpumask(struct cpuset *cs)
 {
 	struct css_task_iter it;
 	struct task_struct *task;
-	bool top_cs = cs == &top_cpuset;
 
 	css_task_iter_start(&cs->css, 0, &it);
-	while ((task = css_task_iter_next(&it))) {
-		/*
-		 * Percpu kthreads in top_cpuset are ignored
-		 */
-		if (top_cs && (task->flags & PF_KTHREAD) &&
-		    kthread_is_per_cpu(task))
-			continue;
+	while ((task = css_task_iter_next(&it)))
 		update_cpus_allowed(cs, task, cs->effective_cpus);
-	}
 	css_task_iter_end(&it);
 }
 
@@ -2087,7 +2078,12 @@ static int update_prstate(struct cpuset *cs, int new_prs)
 		update_flag(CS_CPU_EXCLUSIVE, cs, 0);
 	}
 
-	update_tasks_cpumask(parent);
+	/*
+	 * Update cpumask of parent's tasks except when it is the top
+	 * cpuset as some system daemons cannot be mapped to other CPUs.
+	 */
+	if (parent != &top_cpuset)
+		update_tasks_cpumask(parent);
 
 	if (parent->child_ecpus_count)
 		update_sibling_cpumasks(parent, cs, &tmpmask);
@@ -2235,7 +2231,7 @@ static int cpuset_can_attach(struct cgroup_taskset *tset)
 		goto out_unlock;
 
 	cgroup_taskset_for_each(task, css, tset) {
-		ret = task_can_attach(task);
+		ret = task_can_attach(task, cs->cpus_allowed);
 		if (ret)
 			goto out_unlock;
 		ret = security_task_setscheduler(task);
@@ -2282,23 +2278,11 @@ out_unlock:
 static void cpuset_cancel_attach(struct cgroup_taskset *tset)
 {
 	struct cgroup_subsys_state *css;
-	struct cpuset *cs;
 
 	cgroup_taskset_first(tset, &css);
-	cs = css_cs(css);
 
 	mutex_lock(&cpuset_mutex);
-	cs->attach_in_progress--;
-	if (!cs->attach_in_progress)
-		wake_up(&cpuset_attach_wq);
-
-	if (cs->nr_migrate_dl_tasks) {
-		int cpu = cpumask_any(cs->effective_cpus);
-
-		dl_bw_free(cpu, cs->sum_migrate_dl_bw);
-		reset_migrate_dl_data(cs);
-	}
-
+	css_cs(css)->attach_in_progress--;
 	mutex_unlock(&cpuset_mutex);
 }
 
