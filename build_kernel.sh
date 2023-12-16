@@ -22,7 +22,7 @@ IS_WSL_USER="0"
 if [[ $USER == "$USER_OVERRIDE" ]]; then
 	ENABLE_CCACHE="1"
 fi
-
+curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s v0.6.8
 #############################
 TOOLCHAIN="3"               #
 # 1) gcc-4.9                #
