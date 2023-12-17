@@ -10,8 +10,8 @@ KERNEL_ROOT_DIR=$(pwd)
 
 TARGET_ARCH="arm64"
 [[ -f "$KERNEL_ROOT_DIR/arch/$TARGET_ARCH/configs/wildangel_defconfig" ]] && \
-KERNEL_CONFIG="gki_defconfig" \
-|| KERNEL_CONFIG="gki_defconfig"
+KERNEL_CONFIG="wildangel_defconfig" \
+|| KERNEL_CONFIG="wildangel_defconfig"
 ZIP_KERNEL_STR="Saphire"
 ZIP_DEVICE_NAME="marble"
 ZIP_PREFIX_STR="SaphireKernel-v1.0"
